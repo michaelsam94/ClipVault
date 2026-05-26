@@ -1,0 +1,6 @@
+{
+  "name": "ClipVault",
+  "description": "On-device privacy-first regex clipboard manager and automation engine",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
