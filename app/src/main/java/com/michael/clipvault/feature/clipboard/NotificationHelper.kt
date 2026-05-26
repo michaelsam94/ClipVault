@@ -67,6 +67,16 @@ class NotificationHelper(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val scanIntent = Intent(context, ClipboardScanActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        val scanPendingIntent = PendingIntent.getActivity(
+            context,
+            300,
+            scanIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return NotificationCompat.Builder(context, CHANNEL_SERVICE)
             .setContentTitle("ClipVault Active")
             .setContentText("Monitoring clipboard for patterns locally...")
@@ -74,6 +84,11 @@ class NotificationHelper(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
+            .addAction(
+                android.R.drawable.ic_menu_search,
+                "Scan Clipboard",
+                scanPendingIntent
+            )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Stop Monitoring",

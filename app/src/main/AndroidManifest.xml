@@ -35,6 +35,13 @@
             android:enabled="true"
             android:exported="false" />
 
+        <activity
+            android:name=".feature.clipboard.ClipboardScanActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:exported="false" />
+
         <receiver
             android:name=".feature.clipboard.BootReceiver"
             android:enabled="true"

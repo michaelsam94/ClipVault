@@ -158,6 +158,14 @@ class ClipboardMonitorService : Service() {
         if (intent?.action == ACTION_STOP_MONITORING) {
             stopMonitoringService()
             return START_NOT_STICKY
+        } else if (intent?.action == ACTION_PROCESS_TEXT) {
+            val text = intent.getStringExtra(EXTRA_TEXT)
+            if (!text.isNullOrEmpty()) {
+                processingScope.launch {
+                    processClipboardText(text)
+                }
+            }
+            return START_STICKY
         }
         // Sticky configuration ensures OS restarts this when memory frees up
         return START_STICKY
@@ -173,5 +181,7 @@ class ClipboardMonitorService : Service() {
 
     companion object {
         const val ACTION_STOP_MONITORING = "com.michael.clipvault.ACTION_STOP_MONITORING"
+        const val ACTION_PROCESS_TEXT = "com.michael.clipvault.ACTION_PROCESS_TEXT"
+        const val EXTRA_TEXT = "extra_text"
     }
 }
