@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -6,27 +8,47 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
+if (gradle.startParameter.taskNames.any {
+    it.equals("generatePlayStoreAssets", ignoreCase = true) ||
+      it.contains("Roborazzi", ignoreCase = true)
+  }) {
+  extra["screenshot"] = true
+}
+
 android {
-  namespace = "com.example"
+  namespace = "com.michael.clipvault"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.clipvault.whkcrp"
+    applicationId = "com.michael.clipvault"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  val keystorePropertiesFile = rootProject.file("key.properties")
+  val keystoreProperties = Properties()
+  if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+  }
+
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      if (keystorePropertiesFile.exists()) {
+        keyAlias = keystoreProperties.getProperty("keyAlias") ?: "upload"
+        keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
+        storeFile = rootProject.file(keystoreProperties.getProperty("storeFile") ?: "my-upload-key.jks")
+        storePassword = keystoreProperties.getProperty("storePassword") ?: ""
+      } else {
+        val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+        storeFile = file(keystorePath)
+        storePassword = System.getenv("STORE_PASSWORD")
+        keyAlias = "upload"
+        keyPassword = System.getenv("KEY_PASSWORD")
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -55,7 +77,25 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        val screenshotTests = project.hasProperty("screenshot")
+        it.inputs.property("screenshotTestsEnabled", screenshotTests)
+        it.maxParallelForks = 1
+        it.maxHeapSize = "2048m"
+        it.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+        it.useJUnit {
+          if (screenshotTests) {
+            includeCategories("com.michael.clipvault.playstore.PlayStoreScreenshotTests")
+          } else {
+            excludeCategories("com.michael.clipvault.playstore.PlayStoreScreenshotTests")
+          }
+        }
+      }
+    }
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -118,4 +158,14 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+roborazzi {
+  outputDir.set(file("${rootProject.projectDir}/play-store"))
+}
+
+tasks.register("generatePlayStoreAssets") {
+  group = "publishing"
+  description = "Generate Play Store screenshots and feature graphic via Roborazzi"
+  dependsOn("recordRoborazziDebug")
 }
