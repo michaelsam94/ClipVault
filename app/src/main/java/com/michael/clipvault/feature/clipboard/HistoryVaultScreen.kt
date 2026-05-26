@@ -3,6 +3,8 @@ package com.michael.clipvault.feature.clipboard
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -278,6 +280,21 @@ fun ClipboardEntryItem(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                val textToUse = decryptedText ?: entry.preview
+                val isUrl = remember(textToUse) {
+                    textToUse.startsWith("http://") || 
+                    textToUse.startsWith("https://") || 
+                    textToUse.startsWith("www.") ||
+                    android.util.Patterns.WEB_URL.matcher(textToUse).matches()
+                }
+                val isEmail = remember(textToUse) {
+                    android.util.Patterns.EMAIL_ADDRESS.matcher(textToUse).matches()
+                }
+                val isPhone = remember(textToUse) {
+                    android.util.Patterns.PHONE.matcher(textToUse).matches()
+                }
+                val isClickableAction = isUrl || isEmail || isPhone
+
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Date/Time
@@ -301,12 +318,36 @@ fun ClipboardEntryItem(
 
                     // Text display
                     Text(
-                        text = decryptedText ?: entry.preview,
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = textToUse,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            textDecoration = if (isClickableAction) androidx.compose.ui.text.style.TextDecoration.Underline else null
+                        ),
                         fontFamily = if (decryptedText != null) FontFamily.Monospace else FontFamily.SansSerif,
                         maxLines = if (isExpanded) Int.MAX_VALUE else 3,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = if (isClickableAction) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.then(
+                            if (isClickableAction) {
+                                Modifier.clickable {
+                                    val intentUrl = when {
+                                        isUrl -> if (textToUse.startsWith("www.")) "https://$textToUse" else textToUse
+                                        isEmail -> "mailto:$textToUse"
+                                        isPhone -> "tel:$textToUse"
+                                        else -> textToUse
+                                    }
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(intentUrl)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Unable to open link", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            } else {
+                                Modifier
+                            }
+                        )
                     )
                 }
 
@@ -370,10 +411,90 @@ fun ClipboardEntryItem(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                val textToUse = decryptedText ?: entry.preview
+                val isUrl = remember(textToUse) {
+                    textToUse.startsWith("http://") || 
+                    textToUse.startsWith("https://") || 
+                    textToUse.startsWith("www.") ||
+                    android.util.Patterns.WEB_URL.matcher(textToUse).matches()
+                }
+                val isEmail = remember(textToUse) {
+                    android.util.Patterns.EMAIL_ADDRESS.matcher(textToUse).matches()
+                }
+                val isPhone = remember(textToUse) {
+                    android.util.Patterns.PHONE.matcher(textToUse).matches()
+                }
+
+                if (isUrl) {
+                    IconButton(
+                        onClick = {
+                            val intentUrl = if (textToUse.startsWith("www.")) "https://$textToUse" else textToUse
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(intentUrl)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No app found to handle this link", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "Open Link",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else if (isEmail) {
+                    IconButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:$textToUse")).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No app found to send email", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Send Email",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else if (isPhone) {
+                    IconButton(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("tel:$textToUse")).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "No app found to call number", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Call Number",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 // Action buttons quick view on expanded
                 IconButton(
                     onClick = {
-                        sysClipboard.setText(buildAnnotatedString { append(decryptedText ?: entry.preview) })
+                        sysClipboard.setText(buildAnnotatedString { append(textToUse) })
                         Toast.makeText(context, "Copied snippet", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.size(36.dp)

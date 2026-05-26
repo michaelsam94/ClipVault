@@ -88,14 +88,20 @@ class NotificationHelper(private val context: Context) {
         // Build Intent for the match-specific action (Direct link, web browse, etc.)
         val actionIntent = when (action.actionType) {
             "OPEN_URL" -> {
-                val formattedUrl = action.actionPayload.replace(
-                    "{group0}", Uri.encode(action.matchedText)
-                ).replace(
-                    "{group1}", Uri.encode(action.groups.getOrElse(1) { "" })
-                ).replace(
-                    "{group2}", Uri.encode(action.groups.getOrElse(2) { "" })
-                )
-                Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl)).apply {
+                val val0 = if (action.actionPayload == "{group0}") action.matchedText else Uri.encode(action.matchedText)
+                val val1 = if (action.actionPayload == "{group1}") action.groups.getOrElse(1) { "" } else Uri.encode(action.groups.getOrElse(1) { "" })
+                val val2 = if (action.actionPayload == "{group2}") action.groups.getOrElse(2) { "" } else Uri.encode(action.groups.getOrElse(2) { "" })
+
+                val rawUrl = action.actionPayload.replace("{group0}", val0)
+                    .replace("{group1}", val1)
+                    .replace("{group2}", val2)
+
+                val finalUrl = if (!rawUrl.contains(":") && (rawUrl.startsWith("www.") || rawUrl.contains("."))) {
+                    "https://$rawUrl"
+                } else {
+                    rawUrl
+                }
+                Intent(Intent.ACTION_VIEW, Uri.parse(finalUrl)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
             }
